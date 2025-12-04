@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="ar">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>تسجيل الحضور</title>
+  <style>
+    body{font-family:Arial;display:flex;align-items:center;justify-content:center;height:100vh;margin:0}
+    .box{max-width:520px;padding:20px;border:1px solid #ddd;border-radius:8px;text-align:center}
+    input{padding:8px;margin:5px 0;width:80%;}
+    button{padding:10px 16px;font-size:16px;cursor:pointer;margin-top:10px;}
+  </style>
+</head>
+<body>
+  <div class="box" id="app">
+    <h2>تأكيد موقعك</h2>
+    <p id="msg">يتم تحديد موقعك الآن</p>
+
+    <div id="form" style="display:none">
+      <input type="text" id="name" placeholder="اكتب اسمك" required /><br/>
+      <input type="text" id="group" placeholder="اكتب الجروب" required /><br/>
+      <button id="submit">تسجيل الحضور</button>
+    </div>
+
+    <button id="retry" style="display:none">إعادة المحاولة</button>
+  </div>
+
+  <script>
+    // إحداثيات القاعة
+    const hallLat = 30.037528;
+    const hallLng = 31.200222;
+
+    // نصف قطر السماح بالمتر (قللي القيمة حسب رغبتك)
+    const maxDistanceMeters = 20;
+
+    const msg = document.getElementById('msg');
+    const retry = document.getElementById('retry');
+    const form = document.getElementById('form');
+    const submit = document.getElementById('submit');
+
+    function haversine(lat1, lon1, lat2, lon2) {
+      const toRad = d => d * Math.PI / 180;
+      const R = 6371e3;
+      const φ1 = toRad(lat1);
+      const φ2 = toRad(lat2);
+      const Δφ = toRad(lat2 - lat1);
+      const Δλ = toRad(lon2 - lon1);
+      const a = Math.sin(Δφ/2) ** 2 +
+                Math.cos(φ1) * Math.cos(φ2) *
+                Math.sin(Δλ/2) ** 2;
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      return R * c;
+    }
+
+    function denied(text){
+      msg.textContent = text;
+      retry.style.display = 'inline-block';
+      form.style.display = 'none';
+    }
+
+    function accepted(){
+      msg.textContent = 'تم التحقق من موقعك. يمكنك تسجيل الحضور الآن.';
+      retry.style.display = 'none';
+      form.style.display = 'block';
+    }
+
+    function checkLocation() {
+      msg.textContent = 'يتم التحقق من الموقع…';
+
+      if(!navigator.geolocation){
+        denied('جهازك لا يدعم تحديد الموقع');
+        return;
+      }
+
+      navigator.geolocation.getCurrentPosition(
+        pos => {
+          const lat = pos.coords.latitude;
+          const lng = pos.coords.longitude;
+          const dist = haversine(lat, lng, hallLat, hallLng);
+
+          if(dist <= maxDistanceMeters){
+            accepted();
+          } else {
+            denied('أنت خارج نطاق القاعة. المسافة ' + Math.round(dist) + ' متر');
+          }
+        },
+        err => {
+          if(err.code === 1){
+            denied('تم رفض إذن تحديد الموقع. يرجى تفعيله.');
+          } else {
+            denied('تعذر الحصول على الموقع. رمز الخطأ ' + err.code);
+          }
+        },
+        {enableHighAccuracy:true, timeout:10000, maximumAge:0}
+      );
+    }
+
+    retry.addEventListener('click', checkLocation);
+    checkLocation();
+
+    // تسجيل البيانات عند الضغط على زر submit
+    submit.addEventListener('click', () => {
+      const name = document.getElementById('name').value.trim();
+      const group = document.getElementById('group').value.trim();
+      if(name && group){
+        alert(`تم تسجيل حضور ${name} - الجروب: ${group}`);
+        // هنا ممكن تحطي كود لإرسال البيانات لجوجل فورم أو سيرفر
+        document.getElementById('name').value = '';
+        document.getElementById('group').value = '';
+      } else {
+        alert('من فضلك املأ كل الحقول');
+      }
+    });
+  </script>
+</body>
+</html>
